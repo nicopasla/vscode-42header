@@ -1,41 +1,33 @@
 <img
-  src="https://raw.githubusercontent.com/kube/vscode-42header/master/42.png" 
-  width=128>
+  src="42.png" alt="42 Belgium Logo">
 
-> **Searching for Maintainer.**
-> 
-> This project was done 7 years ago, which is an eternity relative to VSCode Lifespan.
-> I don't have time to maintain this, but I see a lot of people doing Pull Requests for it, or creating issues.
-> 
-> As there are no Unit Tests and no CI/CD, it makes it even harder to check for issues and PRs.
->
-> What I'd like to do is to give ownership to an "official" 42 organization on GitHub, where a group of students could maintain and update this project themselves.
->
-> If you are interested in such a thing, please ping me.
-
-# 42 Header for VSCode
+# 42 Belgium Header for VSCode
 
 This extension provides the 42 header integration in VS Code.
 
 ```bash
-# **************************************************************************** #
-#                                                                              #
-#                                                         :::      ::::::::    #
-#    vscode-42header                                    :+:      :+:    :+:    #
-#                                                     +:+ +:+         +:+      #
-#    By: kube <hello@kube.io>                       +#+  +:+       +#+         #
-#                                                 +#+#+#+#+#+   +#+            #
-#    Created: 2013/11/18 13:37:42 by kube              #+#    #+#              #
-#    Updated: 2016/09/18 13:11:04 by kube             ###   ########.fr        #
-#                                                                              #
-# **************************************************************************** #
+# ************************************************************************** #
+#                                                                            #
+#                                                        :::      ::::::::   #
+#   vscode-42header                                    :+:      :+:    :+:   #
+#                                                    +:+ +:+         +:+     #
+#   By: kube <hello@kube.io>                       +#+  +:+       +#+        #
+#                                                +#+#+#+#+#+   +#+           #
+#   Created: 2013/11/18 13:37:42 by kube              #+#    #+#             #
+#   Updated: 2026/03/13 10:23:51 by nicopasla        ###   #######belgium.be #
+#                                                                            #
+# ************************************************************************** #
 ```
 
 ## Install
 
+Install it from the [VSCode Marketplace](https://marketplace.visualstudio.com/items?itemName=nicopasla.42belgiumheader)
+
+OR
+
 Launch Quick Open with <kbd>⌘</kbd>+<kbd>P</kbd> and enter
 ```
-ext install 42header
+ext install 42belgiumheader
 ```
 
 ## Usage
@@ -45,6 +37,17 @@ ext install 42header
  - **Linux** / **Windows** : <kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>H</kbd>.
 
 Header is automatically updated on save.
+
+### Auto-insert
+To automatically insert a header when a new empty supported file is created, enable it in *User Settings*:
+```ts
+{
+  "42header.autoInsert": true
+}
+```
+
+### Status bar
+When a supported file is open, the current header author is shown in the status bar. Clicking it inserts or updates the header.
 
 
 ## Configuration
@@ -60,10 +63,27 @@ To override these values, specify these properties in *User Settings* :
 }
 ```
 
+## Build from Source
 
+```bash
+# Install dependencies
+npm install
+
+# Compile TypeScript
+npm run compile
+
+# Package the extension
+vsce package
+
+# Install in VSCode
+code --install-extension 42belgiumheader-1.0.0.vsix
+```
 ## Issues
 
-In case of a bug, or missing feature, please create a [Github Pull Request](https://github.com/kube/vscode-42header/pulls).
+In case of a bug or missing feature, please open a [GitHub Issue](https://github.com/nicopasla/vscode-42header/issues) or submit a [Pull Request](https://github.com/nicopasla/vscode-42header/pulls).
+
+## Credits
+Originally created by [kube](https://github.com/kube/vscode-42header) — modernized for 42 Belgium by [nicopasla](https://github.com/nicopasla).
 
 ## License
 
