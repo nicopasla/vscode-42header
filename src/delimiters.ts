@@ -1,21 +1,11 @@
+const hashes = ['# ', ' #'] as const;
+const slashes = ['/* ', ' */'] as const;
+const semicolons = [';; ', ' ;;'] as const;
+const parens = ['(* ', ' *)'] as const;
+const dashes = ['-- ', ' --'] as const;
+const percents = ['%% ', ' %%'] as const;
 
-      /*#######.
-     ########",#:
-   #########',##".
-  ##'##'## .##',##.
-   ## ## ## # ##",#.
-    ## ## ## ## ##'
-     ## ## ## :##
-      ## ## ##*/
-
-const hashes = ['# ', ' #']
-const slashes = ['/* ', ' */']
-const semicolons = [';; ', ' ;;']
-const parens = ['(* ', ' *)']
-const dashes = ['-- ', ' --']
-const percents = ['%% ', ' %%']
-
-export const languageDemiliters: { [lang: string]: string[] | undefined } = {
+export const languageDelimiters: Record<string, readonly [string, string]> = {
   'c': slashes,
   'coffeescript': hashes,
   'cpp': slashes,
@@ -53,4 +43,4 @@ export const languageDemiliters: { [lang: string]: string[] | undefined } = {
   'typescriptreact': slashes,
   'xsl': slashes,
   'yaml': hashes
-}
+};

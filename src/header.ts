@@ -1,139 +1,137 @@
+import { languageDelimiters } from './delimiters';
 
-      /*#######.
-     ########",#:
-   #########',##".
-  ##'##'## .##',##.
-   ## ## ## # ##",#.
-    ## ## ## ## ##'
-     ## ## ## :##
-      ## ## ##*/
-
-import moment = require('moment')
-import { languageDemiliters } from './delimiters'
-
-export type HeaderInfo = {
-  filename: string,
-  author: string,
-  createdBy: string,
-  createdAt: moment.Moment,
-  updatedBy: string,
-  updatedAt: moment.Moment
+export interface HeaderInfo {
+  filename: string;
+  author: string;
+  createdBy: string;
+  createdAt: Date;
+  updatedBy: string;
+  updatedAt: Date;
 }
 
-/**
- * Template where each field name is prefixed by $ and is padded with _
- */
 const genericTemplate = `
 ********************************************************************************
 *                                                                              *
 *                                                         :::      ::::::::    *
-*    $FILENAME__________________________________        :+:      :+:    :+:    *
+*    $FILENAME_________________________________________ :+:      :+:    :+:    *
 *                                                     +:+ +:+         +:+      *
-*    By: $AUTHOR________________________________    +#+  +:+       +#+         *
+*    By: $AUTHOR___________________________________ +#+  +:+       +#+         *
 *                                                 +#+#+#+#+#+   +#+            *
 *    Created: $CREATEDAT_________ by $CREATEDBY_       #+#    #+#              *
-*    Updated: $UPDATEDAT_________ by $UPDATEDBY_      ###   ########.fr        *
+*    Updated: $UPDATEDAT_________ by $UPDATEDBY_      ###   #######belgium.be  *
 *                                                                              *
 ********************************************************************************
+`.substring(1);
 
-`.substring(1)
+const getTemplate = (languageId: string): string => {
+  const delimiters = languageDelimiters[languageId];
+  if (!delimiters) {
+    throw new Error(`Unsupported language: ${languageId}`);
+  }
 
-/**
- * Get specific header template for languageId
- */
-const getTemplate = (languageId: string) => {
-  const [left, right] = languageDemiliters[languageId]
-  const width = left.length
+  const [left, right] = delimiters;
+  const width = left.length;
 
-  // Replace all delimiters with ones for current language
   return genericTemplate
     .replace(new RegExp(`^(.{${width}})(.*)(.{${width}})$`, 'gm'),
-    left + '$2' + right)
-}
+      left + '$2' + right);
+};
 
-/**
- * Fit value to correct field width, padded with spaces
- */
-const pad = (value: string, width: number) =>
-  value.concat(' '.repeat(width)).substr(0, width)
+const pad = (value: string, width: number): string =>
+  value.concat(' '.repeat(width)).slice(0, width);
 
-/**
- * Stringify Date to correct format for header
- */
-const formatDate = (date: moment.Moment) =>
-  date.format('YYYY/MM/DD HH:mm:ss')
+const formatDate = (date: Date): string => {
+  const pad = (n: number) => String(n).padStart(2, '0');
 
-/**
- * Get Date object from date string formatted for header
- */
-const parseDate = (date: string) =>
-  moment(date, 'YYYY/MM/DD HH:mm:ss')
+  return `${date.getFullYear()}/${pad(date.getMonth() + 1)}/${pad(date.getDate())} ` +
+         `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+};
 
-/**
- * Check if language is supported
- */
-export const supportsLanguage = (languageId: string) =>
-  languageId in languageDemiliters
+const parseDate = (dateStr: string): Date => {
+  const parts = dateStr.match(/^(\d{4})\/(\d{2})\/(\d{2})\s+(\d{2}):(\d{2}):(\d{2})$/);
+  
+  if (!parts) {
+    return new Date();
+  }
 
-/**
- * Returns current header text if present at top of document
- */
+  const [, year, month, day, hours, minutes, seconds] = parts;
+  return new Date(+year, +month - 1, +day, +hours, +minutes, +seconds);
+};
+
+export const supportsLanguage = (languageId: string): boolean =>
+  languageId in languageDelimiters;
+
 export const extractHeader = (text: string): string | null => {
-  const headerRegex = `^(.{80}(\r\n|\n)){10}`
-  const match = text.match(headerRegex)
+  const headerRegex = `^(.{80}(\r\n|\n)){10}`;
+  const match = text.match(headerRegex);
 
-  return match ? match[0].split('\r\n').join('\n') : null
-}
+  return match ? match[0].split('\r\n').join('\n') : null;
+};
 
-/**
- * Regex to match field in template
- * Returns [ global match, offset, field ]
- */
-const fieldRegex = (name: string) =>
-  new RegExp(`^((?:.*\\\n)*.*)(\\\$${name}_*)`, '')
+const fieldRegex = (name: string): RegExp =>
+    new RegExp(`^(.*?)(\\$${name}_*)`, 's');
 
-/**
- * Get value for given field name from header string
- */
-const getFieldValue = (header: string, name: string) => {
-  const [_, offset, field] = genericTemplate.match(fieldRegex(name))
+const getFieldValue = (header: string, name: string): string => {
+  const match = genericTemplate.match(fieldRegex(name));
+  
+  if (!match) {
+    throw new Error(`Field ${name} not found in template`);
+  }
 
-  return header.substr(offset.length, field.length)
-}
+  const [, offset, field] = match;
+  return header
+  .slice(offset.length, offset.length + field.length)
+  .trim();
+};
 
-/**
- * Set field value in header string
- */
-const setFieldValue = (header: string, name: string, value: string) => {
-  const [_, offset, field] = genericTemplate.match(fieldRegex(name))
+const setFieldValue = (header: string, name: string, value: string): string => {
+  const match = genericTemplate.match(fieldRegex(name));
+  
+  if (!match) {
+    return header;
+  }
 
-  return header.substr(0, offset.length)
+  const [, offset, field] = match;
+  
+  return header.slice(0, offset.length)
     .concat(pad(value, field.length))
-    .concat(header.substr(offset.length + field.length))
-}
+    .concat(header.slice(offset.length + field.length));
+};
 
-/**
- * Extract header info from header string
- */
-export const getHeaderInfo = (header: string): HeaderInfo => ({
-  filename: getFieldValue(header, 'FILENAME'),
-  author: getFieldValue(header, 'AUTHOR'),
-  createdBy: getFieldValue(header, 'CREATEDBY'),
-  createdAt: parseDate(getFieldValue(header, 'CREATEDAT')),
-  updatedBy: getFieldValue(header, 'UPDATEDBY'),
-  updatedAt: parseDate(getFieldValue(header, 'UPDATEDAT'))
-})
+export const getHeaderInfo = (header: string): HeaderInfo => {
+  try {
+    return {
+      filename: getFieldValue(header, 'FILENAME'),
+      author: getFieldValue(header, 'AUTHOR'),
+      createdBy: getFieldValue(header, 'CREATEDBY'),
+      createdAt: parseDate(getFieldValue(header, 'CREATEDAT')),
+      updatedBy: getFieldValue(header, 'UPDATEDBY'),
+      updatedAt: parseDate(getFieldValue(header, 'UPDATEDAT'))
+    };
+  } catch (error) {
+    const now = new Date();
+    return {
+      filename: '',
+      author: '',
+      createdBy: '',
+      createdAt: now,
+      updatedBy: '',
+      updatedAt: now
+    };
+  }
+};
 
-/**
- * Renders a language template with header info
- */
-export const renderHeader = (languageId: string, info: HeaderInfo) => [
-  { name: 'FILENAME', value: info.filename },
-  { name: 'AUTHOR', value: info.author },
-  { name: 'CREATEDAT', value: formatDate(info.createdAt) },
-  { name: 'CREATEDBY', value: info.createdBy },
-  { name: 'UPDATEDAT', value: formatDate(info.updatedAt) },
-  { name: 'UPDATEDBY', value: info.updatedBy }
-].reduce((header, field) =>
-  setFieldValue(header, field.name, field.value),
-  getTemplate(languageId))
+export const renderHeader = (languageId: string, info: HeaderInfo): string => {
+  const fields = [
+    { name: 'FILENAME', value: info.filename },
+    { name: 'AUTHOR', value: info.author },
+    { name: 'CREATEDAT', value: formatDate(info.createdAt) },
+    { name: 'CREATEDBY', value: info.createdBy },
+    { name: 'UPDATEDAT', value: formatDate(info.updatedAt) },
+    { name: 'UPDATEDBY', value: info.updatedBy }
+  ];
+
+  return fields.reduce((header, field) =>
+    setFieldValue(header, field.name, field.value),
+    getTemplate(languageId));
+};
