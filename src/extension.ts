@@ -19,6 +19,8 @@ import {
 } from './header';
 
 const HEADER_LINE_COUNT = 11;
+const HEADER_RANGE = new Range(0, 0, HEADER_LINE_COUNT, 0);
+const updatingDocuments = new Set<string>();
 
 const getCurrentUser = (): string => {
   const config = workspace.getConfiguration();
@@ -64,11 +66,11 @@ const insertHeaderHandler = (): void => {
 
   activeTextEditor.edit(editor => {
     try {
-      const currentHeader = extractHeader(document.getText());
+      const currentHeader = extractHeader(document.getText(HEADER_RANGE));
 
       if (currentHeader) {
         editor.replace(
-          new Range(0, 0, HEADER_LINE_COUNT, 0),
+          HEADER_RANGE,
           renderHeader(
             document.languageId,
             newHeaderInfo(document, getHeaderInfo(currentHeader))
@@ -94,27 +96,35 @@ const insertHeaderHandler = (): void => {
 const startUpdateOnSaveWatcher = (subscriptions: vscode.Disposable[]): void => {
   workspace.onWillSaveTextDocument(event => {
     const document = event.document;
-    
+
+    if (updatingDocuments.has(document.uri.toString())) {
+      return;
+    }
+
     if (!supportsLanguage(document.languageId)) {
       return;
     }
 
-    const currentHeader = extractHeader(document.getText());
-    
+    const headerText = document.getText(HEADER_RANGE);
+    const currentHeader = extractHeader(headerText);
+
     if (!currentHeader) {
       return;
     }
 
     try {
-      const edit = TextEdit.replace(
-        new Range(0, 0, HEADER_LINE_COUNT, 0),
-        renderHeader(
-          document.languageId,
-          newHeaderInfo(document, getHeaderInfo(currentHeader))
-        )
+      const newHeader = renderHeader(
+        document.languageId,
+        newHeaderInfo(document, getHeaderInfo(currentHeader))
       );
 
-      event.waitUntil(Promise.resolve([edit]));
+      if (headerText === newHeader) {
+        return;
+      }
+
+      event.waitUntil(Promise.resolve([
+        TextEdit.replace(HEADER_RANGE, newHeader)
+      ]));
     } catch (error) {
       console.error('Failed to update header on save:', error);
       event.waitUntil(Promise.resolve([]));
@@ -138,7 +148,7 @@ const updateStatusBar = (item: vscode.StatusBarItem, editor?: vscode.TextEditor)
     return;
   }
 
-  const header = extractHeader(editor.document.getText());
+  const header = extractHeader(editor.document.getText(HEADER_RANGE));
   if (header) {
     const info = getHeaderInfo(header);
     item.text = `$(account) ${info.author}`;
@@ -158,7 +168,7 @@ const startAutoInsertOnNewFileWatcher = (subscriptions: vscode.Disposable[]): vo
       return;
     }
 
-    if (document.getText().length > 0) {
+    if (document.getText(HEADER_RANGE).length > 0) {
       return;
     }
 
@@ -186,6 +196,42 @@ const startAutoInsertOnNewFileWatcher = (subscriptions: vscode.Disposable[]): vo
   }, null, subscriptions);
 };
 
+const startRenameWatcher = (subscriptions: vscode.Disposable[]): void => {
+  workspace.onDidRenameFiles(async (event) => {
+    await Promise.all(event.files.map(async ({ newUri }) => {
+      try {
+        const document =
+          workspace.textDocuments.find(d => d.uri.toString() === newUri.toString()) ??
+          await workspace.openTextDocument(newUri);
+        if (!supportsLanguage(document.languageId)) return;
+        const headerText = document.getText(HEADER_RANGE);
+        const header = extractHeader(headerText);
+        if (!header) return;
+        const newHeader = renderHeader(
+          document.languageId,
+          newHeaderInfo(document, getHeaderInfo(header))
+        );
+        if (headerText === newHeader) return;
+        const edit = new vscode.WorkspaceEdit();
+        edit.replace(newUri, HEADER_RANGE, newHeader);
+        updatingDocuments.add(newUri.toString());
+        try {
+          const success = await vscode.workspace.applyEdit(edit);
+          if (!success) {
+            console.warn(`Edit failed for ${newUri.toString()}`);
+            return;
+          }
+          await document.save();
+        } finally {
+          updatingDocuments.delete(newUri.toString());
+        }
+      } catch (err) {
+        console.error(`Header update failed for ${newUri.toString()}`, err);
+      }
+    }));
+  }, null, subscriptions);
+};
+
 export const activate = (context: ExtensionContext): void => {
   const disposable = vscode.commands.registerTextEditorCommand(
     '42header.insertHeader',
@@ -205,9 +251,14 @@ export const activate = (context: ExtensionContext): void => {
     })
   );
 
+  startRenameWatcher(context.subscriptions);
+
   context.subscriptions.push(
     workspace.onDidChangeTextDocument(event => {
-      if (window.activeTextEditor?.document === event.document) {
+      if (
+        window.activeTextEditor?.document === event.document &&
+        event.contentChanges.some(change => change.range.start.line < HEADER_LINE_COUNT)
+      ) {
         updateStatusBar(statusBarItem, window.activeTextEditor);
       }
     })
