@@ -1,6 +1,3 @@
-<img
-  src="42.png" alt="42 Belgium Logo">
-
 # 42 Belgium Header for VSCode
 
 This extension provides the 42 header integration in VS Code.
@@ -18,6 +15,13 @@ This extension provides the 42 header integration in VS Code.
 #                                                                            #
 # ************************************************************************** #
 ```
+
+## Features
+- Insert 42 header into compatible files
+- Automatic header update on save
+- Auto-rename header filename on file rename
+- Auto-insert on new file creation (optional)
+- Status bar showing current header author
 
 ## Install
 
@@ -49,6 +53,8 @@ To automatically insert a header when a new empty supported file is created, ena
 ### Status bar
 When a supported file is open, the current header author is shown in the status bar. Clicking it inserts or updates the header.
 
+### Auto-rename
+When a supported file is renamed, the filename field in the header is automatically updated.
 
 ## Configuration
 
@@ -76,7 +82,7 @@ npm run compile
 vsce package
 
 # Install in VSCode
-code --install-extension 42belgiumheader-1.0.0.vsix
+code --install-extension 42belgiumheader-1.0.2.vsix
 ```
 ## Issues
 
