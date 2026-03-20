@@ -211,4 +211,31 @@ suite('42 Belgium Header - Integration', () => {
 
     fs.unlinkSync(tmpPath);
   });
+
+  test('header filename updates after file rename', async () => {
+  const tmpPath = path.join(os.tmpdir(), `test-${Date.now()}.c`);
+  const newPath = tmpPath.replace('.c', '-renamed.c');
+  fs.writeFileSync(tmpPath, '');
+
+  const doc = await vscode.workspace.openTextDocument(tmpPath);
+  await vscode.window.showTextDocument(doc);
+  await vscode.commands.executeCommand('42header.insertHeader');
+  await new Promise(resolve => setTimeout(resolve, 500));
+
+  const oldUri = vscode.Uri.file(tmpPath);
+  const newUri = vscode.Uri.file(newPath);
+  const edit = new vscode.WorkspaceEdit();
+  edit.renameFile(oldUri, newUri);
+  await vscode.workspace.applyEdit(edit);
+  await new Promise(resolve => setTimeout(resolve, 500));
+
+  const newDoc = await vscode.workspace.openTextDocument(newUri);
+  const text = newDoc.getText();
+  const newFilename = path.basename(newPath);
+
+  assert.ok(text.includes(newFilename), `Header filename not updated after rename, expected ${newFilename}`);
+
+  fs.unlinkSync(newPath);
+});
+
 });
