@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+## [1.0.4] - 2026-03-23
+
+### Added
+
+- Disclaimer
+- Credit for the 42 logo
+
+### Changed
+
+- Logo is now from public domain, modified to add a `BE`
+
 ## [1.0.3] - 2026-03-23
 
 ### Changed
@@ -59,7 +70,8 @@
 
 - Dependency on `moment.js`
 
-[unreleased]: https://github.com/nicopasla/vscode-42header/compare/v1.0.3...HEAD
+[unreleased]: https://github.com/nicopasla/vscode-42header/compare/v1.0.4...HEAD
+[1.0.4]: https://github.com/nicopasla/vscode-42header/compare/v1.0.3...v1.0.4
 [1.0.3]: https://github.com/nicopasla/vscode-42header/compare/v1.0.2...v1.0.3
 [1.0.2]: https://github.com/nicopasla/vscode-42header/compare/v1.0.1...v1.0.2
 [1.0.1]: https://github.com/nicopasla/vscode-42header/commits/v1.0.1
