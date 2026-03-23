@@ -41,6 +41,6 @@ jobs:
           files: '*.vsix'
       - name: Publish to VS Code Marketplace
         if: github.event_name == 'release'
-        run: vsce publish --packagePath "$(ls *.vsix)"
+        run: npx vsce publish --packagePath "$(ls *.vsix)"
         env:
           VSCE_PAT: ${{ secrets.VSCE_PAT }}
