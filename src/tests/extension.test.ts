@@ -4,6 +4,77 @@ import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
 
+function waitForDocumentChange(
+  doc: vscode.TextDocument,
+  predicate: (text: string) => boolean,
+  timeout = 3000
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      sub.dispose();
+      reject(new Error(`waitForDocumentChange timed out after ${timeout}ms`));
+    }, timeout);
+
+    const sub = vscode.workspace.onDidChangeTextDocument(e => {
+      if (e.document === doc && predicate(e.document.getText())) {
+        clearTimeout(timer);
+        sub.dispose();
+        resolve();
+      }
+    });
+
+    if (predicate(doc.getText())) {
+      clearTimeout(timer);
+      sub.dispose();
+      resolve();
+    }
+  });
+}
+
+function waitForSave(doc: vscode.TextDocument, timeout = 3000): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      sub.dispose();
+      reject(new Error(`waitForSave timed out after ${timeout}ms`));
+    }, timeout);
+
+    const sub = vscode.workspace.onDidSaveTextDocument(saved => {
+      if (saved === doc) {
+        clearTimeout(timer);
+        sub.dispose();
+        resolve();
+      }
+    });
+  });
+}
+
+function waitForOpen(uri: vscode.Uri, timeout = 3000): Promise<vscode.TextDocument> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      sub.dispose();
+      reject(new Error(`waitForOpen timed out after ${timeout}ms`));
+    }, timeout);
+
+    const sub = vscode.workspace.onDidOpenTextDocument(opened => {
+      if (opened.uri.fsPath === uri.fsPath) {
+        clearTimeout(timer);
+        sub.dispose();
+        resolve(opened);
+      }
+    });
+  });
+}
+
+async function closeAndDelete(filePath: string): Promise<void> {
+  const uri = vscode.Uri.file(filePath);
+  await vscode.window.tabGroups.close(
+    vscode.window.tabGroups.all
+      .flatMap(g => g.tabs)
+      .filter(t => t.input instanceof vscode.TabInputText && t.input.uri.fsPath === uri.fsPath)
+  );
+  fs.unlinkSync(filePath);
+}
+
 suite('42 Belgium Header - Integration', () => {
   test('extension is active', async () => {
     const ext = vscode.extensions.getExtension('nicopasla.42belgiumheader');
@@ -18,13 +89,12 @@ suite('42 Belgium Header - Integration', () => {
   });
 
   test('insertHeader inserts header in a c file', async () => {
-    const doc = await vscode.workspace.openTextDocument({
-      language: 'c',
-      content: ''
-    });
+    const doc = await vscode.workspace.openTextDocument({ language: 'c', content: '' });
     const editor = await vscode.window.showTextDocument(doc);
+
+    const changed = waitForDocumentChange(doc, t => t.includes('Created:'));
     await vscode.commands.executeCommand('42header.insertHeader');
-    await new Promise(resolve => setTimeout(resolve, 500));
+    await changed;
 
     const text = editor.document.getText();
     assert.ok(text.startsWith('/* '), 'Header does not start with /* ');
@@ -33,142 +103,144 @@ suite('42 Belgium Header - Integration', () => {
   });
 
   test('save updates updatedAt but preserves createdAt', async () => {
-  const tmpPath = path.join(os.tmpdir(), `test-${Date.now()}.c`);
-  fs.writeFileSync(tmpPath, '');
+    const tmpPath = path.join(os.tmpdir(), `test-${Date.now()}.c`);
+    fs.writeFileSync(tmpPath, '');
 
-  const doc = await vscode.workspace.openTextDocument(tmpPath);
-  const editor = await vscode.window.showTextDocument(doc);
+    const doc = await vscode.workspace.openTextDocument(tmpPath);
+    const editor = await vscode.window.showTextDocument(doc);
 
-  await vscode.commands.executeCommand('42header.insertHeader');
-  await new Promise(resolve => setTimeout(resolve, 500));
+    const inserted = waitForDocumentChange(doc, t => t.includes('Created:'));
+    await vscode.commands.executeCommand('42header.insertHeader');
+    await inserted;
 
-  const firstText = editor.document.getText();
-  const createdAtMatch = firstText.match(/Created: (\S+ \S+)/);
-  const updatedAtMatch = firstText.match(/Updated: (\S+ \S+)/);
+    const firstText = editor.document.getText();
+    const createdAt = firstText.match(/Created: (\S+ \S+)/)![1];
+    const updatedAt = firstText.match(/Updated: (\S+ \S+)/)![1];
 
-  await new Promise(resolve => setTimeout(resolve, 1000));
-  await doc.save();
-  await new Promise(resolve => setTimeout(resolve, 500));
+    await new Promise(r => setTimeout(r, 1100));
 
-  const secondText = editor.document.getText();
-  const newCreatedAtMatch = secondText.match(/Created: (\S+ \S+)/);
-  const newUpdatedAtMatch = secondText.match(/Updated: (\S+ \S+)/);
+    const updated = waitForDocumentChange(doc, t => {
+      const m = t.match(/Updated: (\S+ \S+)/);
+      return !!m && m[1] !== updatedAt;
+    });
+    const saved = waitForSave(doc);
+    await doc.save();
+    await Promise.all([saved, updated]);
 
-  assert.strictEqual(createdAtMatch![1], newCreatedAtMatch![1], 'createdAt changed');
-  assert.notStrictEqual(updatedAtMatch![1], newUpdatedAtMatch![1], 'updatedAt did not change');
-  fs.unlinkSync(tmpPath);
-});
+    const secondText = editor.document.getText();
+    assert.strictEqual(secondText.match(/Created: (\S+ \S+)/)![1], createdAt, 'createdAt changed');
+    assert.notStrictEqual(secondText.match(/Updated: (\S+ \S+)/)![1], updatedAt, 'updatedAt did not change');
+
+    await closeAndDelete(tmpPath);
+  });
 
   test('insertHeader does nothing on unsupported language', async () => {
-  const doc = await vscode.workspace.openTextDocument({
-    language: 'xml',
-    content: 'hello'
-  });
-  await vscode.window.showTextDocument(doc);
-  await vscode.commands.executeCommand('42header.insertHeader');
-  await new Promise(resolve => setTimeout(resolve, 500));
+    const doc = await vscode.workspace.openTextDocument({ language: 'xml', content: 'hello' });
+    await vscode.window.showTextDocument(doc);
 
-  const text = doc.getText();
-  assert.strictEqual(text, 'hello', 'Content should be unchanged');
+    let changed = false;
+    const sub = vscode.workspace.onDidChangeTextDocument(e => {
+      if (e.document === doc) changed = true;
+    });
+
+    await vscode.commands.executeCommand('42header.insertHeader');
+    await new Promise(r => setTimeout(r, 300));
+    sub.dispose();
+
+    assert.strictEqual(doc.getText(), 'hello', 'Content should be unchanged');
+    assert.ok(!changed, 'Document was unexpectedly modified');
   });
 
   test('inserting header twice does not duplicate it', async () => {
-    const doc = await vscode.workspace.openTextDocument({
-      language: 'c',
-      content: ''
-    });
+    const doc = await vscode.workspace.openTextDocument({ language: 'c', content: '' });
     await vscode.window.showTextDocument(doc);
-    await vscode.commands.executeCommand('42header.insertHeader');
-    await new Promise(resolve => setTimeout(resolve, 500));
-    await vscode.commands.executeCommand('42header.insertHeader');
-    await new Promise(resolve => setTimeout(resolve, 500));
 
-    const text = doc.getText();
-    const count = (text.match(/Created:/g) || []).length;
+    const first = waitForDocumentChange(doc, t => t.includes('Created:'));
+    await vscode.commands.executeCommand('42header.insertHeader');
+    await first;
+
+    let changeCount = 0;
+    const sub = vscode.workspace.onDidChangeTextDocument(e => {
+      if (e.document === doc) changeCount++;
+    });
+    await vscode.commands.executeCommand('42header.insertHeader');
+    await new Promise(r => setTimeout(r, 300));
+    sub.dispose();
+
+    const count = (doc.getText().match(/Created:/g) || []).length;
     assert.strictEqual(count, 1, 'Header was duplicated');
   });
 
   test('insertHeader works for python files', async () => {
-    const doc = await vscode.workspace.openTextDocument({
-      language: 'python',
-      content: ''
-    });
+    const doc = await vscode.workspace.openTextDocument({ language: 'python', content: '' });
     const editor = await vscode.window.showTextDocument(doc);
-    await vscode.commands.executeCommand('42header.insertHeader');
-    await new Promise(resolve => setTimeout(resolve, 500));
 
-    const text = editor.document.getText();
-    assert.ok(text.startsWith('# '), 'Python header should start with # ');
+    const changed = waitForDocumentChange(doc, t => t.startsWith('# '));
+    await vscode.commands.executeCommand('42header.insertHeader');
+    await changed;
+
+    assert.ok(editor.document.getText().startsWith('# '), 'Python header should start with # ');
   });
 
   test('auto-insert inserts header on new empty file when enabled', async () => {
-    await vscode.workspace.getConfiguration().update(
-      '42header.autoInsert',
-      true,
-      vscode.ConfigurationTarget.Global
-    );
+    await vscode.workspace.getConfiguration().update('42header.autoInsert', true, vscode.ConfigurationTarget.Global);
 
     const tmpPath = path.join(os.tmpdir(), `test-${Date.now()}.c`);
     fs.writeFileSync(tmpPath, '');
+    const uri = vscode.Uri.file(tmpPath);
 
-    const doc = await vscode.workspace.openTextDocument(tmpPath);
+    const doc = await vscode.workspace.openTextDocument(uri);
+    const changed = waitForDocumentChange(doc, t => t.startsWith('/* '));
     await vscode.window.showTextDocument(doc);
-    await new Promise(resolve => setTimeout(resolve, 500));
+    await changed;
 
-    const text = doc.getText();
-    assert.ok(text.startsWith('/* '), 'Auto-insert did not add header');
+    assert.ok(doc.getText().startsWith('/* '), 'Auto-insert did not add header');
 
-    await vscode.workspace.getConfiguration().update(
-      '42header.autoInsert',
-      false,
-      vscode.ConfigurationTarget.Global
-    );
-    fs.unlinkSync(tmpPath);
+    await vscode.workspace.getConfiguration().update('42header.autoInsert', false, vscode.ConfigurationTarget.Global);
+    await closeAndDelete(tmpPath);
   });
 
   test('auto-insert does not insert header when disabled', async () => {
-    await vscode.workspace.getConfiguration().update(
-      '42header.autoInsert',
-      false,
-      vscode.ConfigurationTarget.Global
-    );
+    await vscode.workspace.getConfiguration().update('42header.autoInsert', false, vscode.ConfigurationTarget.Global);
 
     const tmpPath = path.join(os.tmpdir(), `test-${Date.now()}.c`);
     fs.writeFileSync(tmpPath, '');
 
     const doc = await vscode.workspace.openTextDocument(tmpPath);
+    let changed = false;
+    const sub = vscode.workspace.onDidChangeTextDocument(e => {
+      if (e.document === doc) changed = true;
+    });
     await vscode.window.showTextDocument(doc);
-    await new Promise(resolve => setTimeout(resolve, 500));
+    await new Promise(r => setTimeout(r, 300));
+    sub.dispose();
 
-    const text = doc.getText();
-    assert.strictEqual(text, '', 'Auto-insert added header when disabled');
+    assert.strictEqual(doc.getText(), '', 'Auto-insert added header when disabled');
+    assert.ok(!changed, 'Document was unexpectedly modified');
 
-    fs.unlinkSync(tmpPath);
+    await closeAndDelete(tmpPath);
   });
 
   test('auto-insert does not overwrite existing content', async () => {
-    await vscode.workspace.getConfiguration().update(
-      '42header.autoInsert',
-      true,
-      vscode.ConfigurationTarget.Global
-    );
+    await vscode.workspace.getConfiguration().update('42header.autoInsert', true, vscode.ConfigurationTarget.Global);
 
     const tmpPath = path.join(os.tmpdir(), `test-${Date.now()}.c`);
     fs.writeFileSync(tmpPath, 'int main() {}');
 
     const doc = await vscode.workspace.openTextDocument(tmpPath);
+    let changed = false;
+    const sub = vscode.workspace.onDidChangeTextDocument(e => {
+      if (e.document === doc) changed = true;
+    });
     await vscode.window.showTextDocument(doc);
-    await new Promise(resolve => setTimeout(resolve, 500));
+    await new Promise(r => setTimeout(r, 300));
+    sub.dispose();
 
-    const text = doc.getText();
-    assert.ok(text.startsWith('int main()'), 'Auto-insert overwrote existing content');
+    assert.ok(doc.getText().startsWith('int main()'), 'Auto-insert overwrote existing content');
+    assert.ok(!changed, 'Document was unexpectedly modified');
 
-    await vscode.workspace.getConfiguration().update(
-      '42header.autoInsert',
-      false,
-      vscode.ConfigurationTarget.Global
-    );
-    fs.unlinkSync(tmpPath);
+    await vscode.workspace.getConfiguration().update('42header.autoInsert', false, vscode.ConfigurationTarget.Global);
+    await closeAndDelete(tmpPath);
   });
 
   test('header filename matches actual filename', async () => {
@@ -177,14 +249,15 @@ suite('42 Belgium Header - Integration', () => {
 
     const doc = await vscode.workspace.openTextDocument(tmpPath);
     const editor = await vscode.window.showTextDocument(doc);
-    await vscode.commands.executeCommand('42header.insertHeader');
-    await new Promise(resolve => setTimeout(resolve, 500));
 
-    const text = editor.document.getText();
     const filename = path.basename(tmpPath);
-    assert.ok(text.includes(filename), `Header does not contain filename ${filename}`);
+    const changed = waitForDocumentChange(doc, t => t.includes(filename));
+    await vscode.commands.executeCommand('42header.insertHeader');
+    await changed;
 
-    fs.unlinkSync(tmpPath);
+    assert.ok(editor.document.getText().includes(filename), `Header does not contain filename ${filename}`);
+
+    await closeAndDelete(tmpPath);
   });
 
   test('header is updated after manual edit and save', async () => {
@@ -193,49 +266,56 @@ suite('42 Belgium Header - Integration', () => {
 
     const doc = await vscode.workspace.openTextDocument(tmpPath);
     const editor = await vscode.window.showTextDocument(doc);
-    await vscode.commands.executeCommand('42header.insertHeader');
-    await new Promise(resolve => setTimeout(resolve, 500));
 
-    await editor.edit(editBuilder => {
+    const inserted = waitForDocumentChange(doc, t => t.includes('Created:'));
+    await vscode.commands.executeCommand('42header.insertHeader');
+    await inserted;
+
+    await editor.edit(eb => {
       const end = editor.document.lineAt(editor.document.lineCount - 1).range.end;
-      editBuilder.insert(end, '\nint main() {}');
+      eb.insert(end, '\nint main() {}');
     });
 
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    await new Promise(r => setTimeout(r, 1100));
+
+    const saved = waitForSave(doc);
     await doc.save();
-    await new Promise(resolve => setTimeout(resolve, 500));
+    await saved;
 
     const text = editor.document.getText();
     assert.ok(text.includes('Updated:'), 'Header missing after save with content');
     assert.ok(text.includes('int main()'), 'Content was lost after save');
 
-    fs.unlinkSync(tmpPath);
+    await closeAndDelete(tmpPath);
   });
 
   test('header filename updates after file rename', async () => {
-  const tmpPath = path.join(os.tmpdir(), `test-${Date.now()}.c`);
-  const newPath = tmpPath.replace('.c', '-renamed.c');
-  fs.writeFileSync(tmpPath, '');
+    const tmpPath = path.join(os.tmpdir(), `test-${Date.now()}.c`);
+    const newPath = tmpPath.replace('.c', '-renamed.c');
+    fs.writeFileSync(tmpPath, '');
 
-  const doc = await vscode.workspace.openTextDocument(tmpPath);
-  await vscode.window.showTextDocument(doc);
-  await vscode.commands.executeCommand('42header.insertHeader');
-  await new Promise(resolve => setTimeout(resolve, 500));
+    const doc = await vscode.workspace.openTextDocument(tmpPath);
+    await vscode.window.showTextDocument(doc);
 
-  const oldUri = vscode.Uri.file(tmpPath);
-  const newUri = vscode.Uri.file(newPath);
-  const edit = new vscode.WorkspaceEdit();
-  edit.renameFile(oldUri, newUri);
-  await vscode.workspace.applyEdit(edit);
-  await new Promise(resolve => setTimeout(resolve, 500));
+    const inserted = waitForDocumentChange(doc, t => t.includes('Created:'));
+    await vscode.commands.executeCommand('42header.insertHeader');
+    await inserted;
 
-  const newDoc = await vscode.workspace.openTextDocument(newUri);
-  const text = newDoc.getText();
-  const newFilename = path.basename(newPath);
+    const newUri = vscode.Uri.file(newPath);
+    const opened = waitForOpen(newUri);
 
-  assert.ok(text.includes(newFilename), `Header filename not updated after rename, expected ${newFilename}`);
+    const edit = new vscode.WorkspaceEdit();
+    edit.renameFile(vscode.Uri.file(tmpPath), newUri);
+    await vscode.workspace.applyEdit(edit);
 
-  fs.unlinkSync(newPath);
-});
+    const newDoc = await opened;
+    const newFilename = path.basename(newPath);
+
+    await waitForDocumentChange(newDoc, t => t.includes(newFilename));
+
+    assert.ok(newDoc.getText().includes(newFilename), `Header filename not updated after rename, expected ${newFilename}`);
+
+    fs.unlinkSync(newPath);
+  });
 
 });
