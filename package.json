@@ -2,7 +2,7 @@
   "name": "42belgiumheader",
   "displayName": "42 Belgium Header",
   "description": "42 Belgium header for VSCode : https://42belgium.be/",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "publisher": "nicopasla",
   "icon": "42.png",
   "extensionKind": ["ui", "workspace"],
@@ -16,7 +16,7 @@
   "homepage": "https://github.com/nicopasla/vscode-42header",
   "license": "MIT",
   "engines": {
-    "vscode": "^1.110.0"
+    "vscode": "^1.75.0"
   },
   "categories": [
   "Other",
@@ -82,8 +82,8 @@
     "test": "npm run test:unit && npm run test:integration"
   },
   "devDependencies": {
-    "@types/node": "^25.x",
-    "@types/vscode": "^1.110.0",
+    "@types/node": "^24.x",
+    "@types/vscode": "^1.75.0",
     "@vscode/test-cli": "^0.0.12",
     "@vscode/test-electron": "^2.5.2",
     "@vscode/vsce": "^3.7.1",
