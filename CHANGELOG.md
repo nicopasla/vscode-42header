@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+## [1.0.3] - 2026-03-23
+
+### Changed
+
+- Extension test now use event instead of timeout
+- Build workflow now upload asset to release / VSCode marketplace
+- Minimum required version is now 1.75.0 instead of latest 1.110.0
+
 ## [1.0.2] - 2026-03-20
 
 ### Added
@@ -51,6 +59,7 @@
 
 - Dependency on `moment.js`
 
-[unreleased]: https://github.com/nicopasla/vscode-42header/compare/v1.0.2...HEAD
+[unreleased]: https://github.com/nicopasla/vscode-42header/compare/v1.0.3...HEAD
+[1.0.3]: https://github.com/nicopasla/vscode-42header/compare/v1.0.2...v1.0.3
 [1.0.2]: https://github.com/nicopasla/vscode-42header/compare/v1.0.1...v1.0.2
 [1.0.1]: https://github.com/nicopasla/vscode-42header/commits/v1.0.1
