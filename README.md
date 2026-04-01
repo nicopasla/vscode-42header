@@ -26,7 +26,7 @@ This extension provides integration of the 42 (Belgium) header in VS Code.
 
 ## Install
 
-Install it from the [VSCode Marketplace](https://marketplace.visualstudio.com/items?itemName=nicopasla.42belgiumheader)
+Install it from the **[VSCode Marketplace](https://marketplace.visualstudio.com/items?itemName=nicopasla.42belgiumheader)**
 
 OR
 
@@ -61,7 +61,7 @@ When a supported file is renamed, the filename field in the header is automatica
 
 Default values for **username** and **email** are imported from environment variables.
 
-To override these values, specify these properties in *User Settings* :
+To override these values, specify these properties in **User Settings** :
 
 ```ts
 {
@@ -83,7 +83,7 @@ npm run compile
 vsce package
 
 # Install in VSCode
-code --install-extension 42belgiumheader-1.0.2.vsix
+code --install-extension 42belgiumheader-X.X.X.vsix
 ```
 ## Issues
 
@@ -91,13 +91,13 @@ In case of a bug or missing feature, please open a [GitHub Issue](https://github
 
 ## Credits
 
-- Originally created by [kube](https://github.com/kube/vscode-42header) — adapted for use by 42 Belgium students by [nicopasla](https://github.com/nicopasla).
+- Originally created by **[kube](https://github.com/kube/vscode-42header)**, adapted for use by 42 Belgium students by **[nicopasla](https://github.com/nicopasla)**.
 
 - The extension logo is based on the [42 Logo SVG](https://commons.wikimedia.org/wiki/File:42_Logo.svg) (public domain) and has been modified to include the `BE` identifier for this project.
 
 ## Disclaimer
 
-This extension is a personal project and is **not officially affiliated** with 42 Belgium.
+This extension is a personal project and is not officially affiliated with 42 Belgium.
 
 ## License
 
