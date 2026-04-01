@@ -5,7 +5,10 @@
   "version": "1.0.4",
   "publisher": "nicopasla",
   "icon": "42.png",
-  "extensionKind": ["ui", "workspace"],
+  "extensionKind": [
+    "ui",
+    "workspace"
+  ],
   "repository": {
     "type": "git",
     "url": "https://github.com/nicopasla/vscode-42header"
@@ -19,17 +22,17 @@
     "vscode": "^1.75.0"
   },
   "categories": [
-  "Other",
-  "Formatters"
-],
-"keywords": [
-  "42",
-  "42belgium",
-  "header",
-  "norminette",
-  "school",
-  "student"
-],
+    "Other",
+    "Formatters"
+  ],
+  "keywords": [
+    "42",
+    "42belgium",
+    "header",
+    "norminette",
+    "school",
+    "student"
+  ],
   "activationEvents": [
     "onStartupFinished"
   ],
@@ -66,7 +69,6 @@
         "mac": "cmd+alt+h",
         "when": "editorTextFocus"
       }
-    
     ]
   },
   "scripts": {
@@ -82,6 +84,7 @@
     "test": "npm run test:unit && npm run test:integration"
   },
   "devDependencies": {
+    "@types/mocha": "^10.0.10",
     "@types/node": "^24.x",
     "@types/vscode": "^1.75.0",
     "@vscode/test-cli": "^0.0.12",
